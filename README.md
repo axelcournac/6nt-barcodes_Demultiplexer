@@ -15,6 +15,6 @@ The executable file must be in the same folder as the file barcodes.txt.
 
 barcodes.txt is a file with 2 comma-separated columns. 
 The 1st column corresponds to the 4 characters name of the barcodes.
-The 2nd columns corresponds to the 6 nucleatides barcode.
+The 2nd column corresponds to the 6 nucleotides barcode.
 
 A folder `Demultiplexed_Reads` is created, where the demultiplexed fastq files are saved.
