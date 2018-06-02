@@ -85,18 +85,23 @@ class Barcodes {
  * Attributes:
  *  m_inFile, (string) the name of the input file
  *  m_end, (string) indicates if the end1 file or the end2 file will be demultiplexed
- *  m_barcodes, (vector<Barcode>) a vector of Barcode object built from the barcode.txt file.  
+ *  m_barcodes, (vector<Barcode>) a vector of Barcode object built from the barcode.txt file.
+ *  m_counts, (vector<int>) the vector keeping track of the number of reads in every file.
  * Methods:
  *  Demultiplexer(string inFile, vector<Barcode>& barcodes, string end)the constructor.
  *  getBCs(): the getter of the input file name
- *  demultiplex(): the actual demultiplexer function.
+ *  demultiplex(): the actual demultiplexer function. Open one ofstream per barcode + 1 for undetermined reads.
+ *                 Gets each read and their barcode and writes them in the corresponding file thanks to the correct ofstream.
+ *                 If the read's barcode is not in the vector, writes it in the file for undetermined reads.
  * */
 
 class Demultiplexer {
     public:
         // Constructor
         Demultiplexer(string inFile, vector<Barcode>& barcodes, string end): 
-            m_inFile(inFile), m_barcodes(barcodes), m_end(end) {}
+            m_inFile(inFile), m_barcodes(barcodes), m_end(end) {
+                vector<int> m_counts;
+        }
 
         // Getter
         string getInfile() const {
@@ -108,6 +113,14 @@ class Demultiplexer {
             //~ ofStream << l1 << endl << l2 << endl << l3 << endl << l4 << endl;
             //~ return true;
         //~ }
+        void report(string m_inFile, int ct, vector<Barcode> m_barcodes, vector<int> m_counts) {
+            cout << "Reads of " << m_inFile << " demultiplexed:" << endl;
+            cout << "Total: " << ct << endl;
+            cout << "Name Seq Nb-of-reads" << endl;
+            for(size_t i(0); i < m_barcodes.size(); i++) {
+                cout << m_barcodes[i].getBCName() << " " << m_barcodes[i].getBCSeq() << " " << m_counts[i] << endl;
+            }
+        }
 
         int demultiplex() {
                 //Ouverture d'un fichier en lecture
@@ -120,16 +133,20 @@ class Demultiplexer {
                     //ofstream ofStream;
                     string l1, l2, l3, l4;
                     bool reported;
-                    
+                    int m_countsSize;
+
                     //Open 48 ofstreams to write into them
                     vector<ofstream> ofStreams;
                     for(auto bc: m_barcodes) {
                         string fileName = "Demultiplexed_Reads/" + bc.getBCName() + "." +  m_end + ".fastq";
                         ofstream ofs(fileName);
                         ofStreams.push_back(move(ofs));
+                        m_counts.push_back(0);
                     }
                     string undeterminedOfStreamName = "Demultiplexed_Reads/Undetermined." +  m_end + ".fastq";
                     ofstream undeterminedOfStream(undeterminedOfStreamName.c_str(), ios::app);
+                    m_counts.push_back(0);
+                    m_countsSize = m_counts.size();
 
                     // Read the file 4 lines at a time and demultiplex as long as there are lines to read
                     while(getline(inFlow, l1) && getline(inFlow, l2) && getline(inFlow, l3) && getline(inFlow, l4)) {
@@ -144,6 +161,7 @@ class Demultiplexer {
                             if(read_barcode == m_barcodes[i].getBCSeq()) {
                                 string toReport(l1 + "\n" + l2 + "\n" + l3 + "\n" + l4 + "\n");
                                 ofStreams[i] << toReport;
+                                m_counts[i] = m_counts[i] + 1;
                                 reported = true;
                                 break;
                             }
@@ -152,6 +170,7 @@ class Demultiplexer {
                         if(!reported) {
                             string toReport(l1 + "\n" + l2 + "\n" + l3 + "\n" + l4 + "\n");
                             undeterminedOfStream << toReport;
+                            m_counts[m_countsSize] = m_counts[m_countsSize] + 1;
                         }
                         
                         ct += 1;
@@ -159,6 +178,9 @@ class Demultiplexer {
                             cout << ct/1000000 << " million reads\r" << flush;
                         }
                     }
+                
+                    report(m_inFile, ct, m_barcodes, m_counts);
+
                 }
                 
                 else {
@@ -172,11 +194,19 @@ class Demultiplexer {
         string m_inFile;
         string m_end;
         vector<Barcode> m_barcodes;
+        vector<int> m_counts;
 };    
 
 
 int main(int argc, char* argv[]) {
-
+    
+    // Check that 2 files have been given as arguments
+    if(argc != 3){
+        cerr << "ERROR: wrong number of arguments. Please provide 1 or 2 fastq files to demultiplex." << endl;
+        return 1;
+    }
+    
+    
     //Create a new "Demultiplexed_Reads" folder
     system("rm -rf Demultiplexed_Reads");
     if(mkdir("Demultiplexed_Reads", 0755) != 0) {
@@ -199,12 +229,13 @@ int main(int argc, char* argv[]) {
         // Demultiplex the reads of the end1
         Demultiplexer dm1(f1, barcodes1, "end1");
         dm1.demultiplex();
-        cout << "\nReads of end1 demultiplexed" << endl;
+        //cout << "\nReads of end1 demultiplexed" << endl;
         
         //~ // Demultiplex the reads of the end2
         Demultiplexer dm2(f2, barcodes2, "end2");
         dm2.demultiplex();
-        cout << "\nReads of end2 demultiplexed" << endl;    
+        //cout << "\nReads of end2 demultiplexed" << endl;
+        cout << endl << "Files saved in Demultiplexed_Reads directory." << endl;
 
         return 0;
     }
