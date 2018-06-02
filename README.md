@@ -1,13 +1,13 @@
-#The program
+# The program
 
 Demultiplex reads produces by Illumina's NextSeq500 and barcoded with Bioo NEXTflex 6nt barcodes.
 
-#Compilation:
+# Compile:
 Demultiplexv2.cpp must be compied with compiler supporting the C++11 standard. For example:
 
 ```g++ --std=c++11 Demultiplexv2.cpp -o <executable file name>```
 
-#Usage:
+# Usage:
 
 ```./Demultiplex <fastq file (end1)> <fastq file (end2)>```
 
