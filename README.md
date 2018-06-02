@@ -14,7 +14,7 @@ Demultiplexv2.cpp must be compiled with a compiler supporting the C++11 standard
 The executable file must be in the same folder as the file barcodes.txt.
 
 barcodes.txt is a file with 2 comma-separated columns. 
-The 1st column corresponds to the 4 character name of the barcodes.
+The 1st column corresponds to the 4 characters name of the barcodes.
 The 2nd columns corresponds to the 6 nucleatides barcode.
 
 A folder `Demultiplexed_Reads` is created, where the demultiplexed fastq files are saved.
