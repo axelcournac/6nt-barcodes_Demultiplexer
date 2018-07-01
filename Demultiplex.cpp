@@ -244,10 +244,12 @@ int main(int argc, char* argv[]) {
         dm1.demultiplex();
         //cout << "\nReads of end1 demultiplexed" << endl;
         
-        //~ // Demultiplex the reads of the end2
-        Demultiplexer dm2(f2, barcodes2, "end2");
-        dm2.demultiplex();
-        //cout << "\nReads of end2 demultiplexed" << endl;
+        // Demultiplex the reads of the end2
+        if(f2 != "-") {
+            Demultiplexer dm2(f2, barcodes2, "end2");
+            dm2.demultiplex();
+            //cout << "\nReads of end2 demultiplexed" << endl;
+        }
         cout << endl << "Files saved in Demultiplexed_Reads directory." << endl;
 
         return 0;
