@@ -45,7 +45,7 @@ class Barcode {
 class Barcodes {
     public:
         // Constructor
-        Barcodes(string barcodesFile, string end): m_barcodesFile(barcodesFile) {
+        Barcodes(string barcodesFile): m_barcodesFile(barcodesFile) {
             initializeBarcodes();  
         }
 
