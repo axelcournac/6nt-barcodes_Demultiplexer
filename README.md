@@ -2,6 +2,10 @@
 
 Demultiplexes reads produces by Illumina's NextSeq500 and barcoded with Bioo NEXTflex 6nt barcodes.
 
+Input: 1 or 2 fastq files 
+Output: a folder with a fastq file for each code-bar
+
+
 ## Compile:
 Demultiplexv2.cpp must be compiled with a compiler supporting the C++11 standard. For example:
 
