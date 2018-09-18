@@ -95,25 +95,200 @@ class Barcodes {
  *                 Gets each read and their barcode and writes them in the corresponding file thanks to the correct ofstream.
  *                 If the read's barcode is not in the vector, writes it in the file for undetermined reads.
  * */
-
 class Demultiplexer {
     public:
         // Constructor
-        Demultiplexer(string inFile, vector<Barcode>& barcodes, string end): 
-            m_inFile(inFile), m_barcodes(barcodes), m_end(end) {
-                vector<int> m_counts;
+        Demultiplexer(string inFile1, string inFile2, vector<Barcode>& barcodes):
+            m_inFile1(inFile1), m_inFile2(inFile2), m_barcodes(barcodes) {
+                vector<int> m_counts1, m_counts2;
         }
 
-        // Getter
-        string getInfile() const {
-            return m_inFile;
+        // Other 
+        /*demultiplex(): the backbone of demultiplexing pipeline*/      
+        int demultiplex() {
+            //if f2 == "None", demultiplex file f1 as a single_end
+            if(m_inFile2 == "None") {
+                ifstream inFlow(m_inFile1); //open m_inFile1
+                if(inFlow) {
+                    // Declare variables
+                    int m_countsSize; // a vector keeping track of how many reads are associated to each barcode
+                    string end("");
+                    //Open 48 ofstreams to write into them and put them in openOfStreams
+                    vector<FILE*> ofStreams = openOfStreams(end);
+                    m_countsSize = m_counts1.size();
+                    // Read the file 4 lines at a time and demultiplex as long as there are lines to read
+                    readAndSort(inFlow, ofStreams, m_countsSize);
+                }
+                else {
+                    cerr << "ERROR: The file to demultiplex can't be opened." << endl;
+                }
+            }
+            
+            // else, demultiplex files f1 and f2 as pair-end files
+            else {
+                ifstream inFlow1(m_inFile1); //open m_inFile1
+                ifstream inFlow2(m_inFile2); //open m_inFile2
+                if(inFlow1 && inFlow2) {
+                    // Declare variables
+                    int m_countsSize;
+                    string end(".end1");
+                    //Open 48 ofstreams to write into them and put them in openOfStreams
+                    vector<FILE*> ofStreams1 = openOfStreams(end);
+                    end = ".end2";
+                    vector<FILE*> ofStreams2 = openOfStreams(end);
+                    m_countsSize = m_counts1.size();
+                    // Read the file 4 lines at a time and demultiplex as long as there are lines to read
+                    readAndSort(inFlow1, inFlow2, ofStreams1, ofStreams2, m_countsSize);
+                }
+            }
+            return 0;
         }
+        
+        /*openOfStreams: create and returns a vector of streams to files corresponding to all the barcodes*/
+        vector<FILE*> openOfStreams(string end) {                   
+            //open the streams corresponding to each barcode
+            vector<FILE*> ofStreams;
+            for(auto bc: m_barcodes) {
+                string fileName = "Demultiplexed_Reads/" + bc.getBCName() + end + ".fastq";
+                FILE* ofs;
+                ofs = fopen(fileName.c_str(), "w");
+                ofStreams.push_back(ofs);
+                if(end == "" || end == ".end1") {
+                    m_counts1.push_back(0);
+                }
+                else{
+                    m_counts2.push_back(0);
+                }
+            }
+            //open a special stream for undertermined reads
+            string undeterminedOfStreamName = "Demultiplexed_Reads/Undetermined." +  end + ".fastq";
+            FILE* undeterminedOfStream;
+            undeterminedOfStream = fopen(undeterminedOfStreamName.c_str(), "w");
+            ofStreams.push_back(undeterminedOfStream);
+            if(end == "" || end == ".end1") {
+                m_counts1.push_back(0);
+            }
+            else{
+                m_counts2.push_back(0);
+            }
 
-        // Other
-        //~ bool reportRead(Barcode barcode, ofstream ofStream, string end, string l1, string l2, string l3, string l4) {
-            //~ ofStream << l1 << endl << l2 << endl << l3 << endl << l4 << endl;
-            //~ return true;
-        //~ }
+            return ofStreams;
+        }
+        
+        /**/
+        void readAndSort(ifstream& inFlow, vector<FILE*>& ofStreams, int m_countsSize) { 
+            int written;
+            long long int ct(0);
+            string l1, l2, l3, l4, toReport, read_barcode;
+            bool reported;
+            while(getline(inFlow, l1) && getline(inFlow, l2) && getline(inFlow, l3) && getline(inFlow, l4)) {
+                //get the current read's barcode value
+                read_barcode = l1.substr(l1.find(" ")+7, 6);
+                reported = false;
+
+                //check if it corresponds to a NEXTfera barcode
+                for(size_t i(0); i < m_barcodes.size(); i++) {
+                    //if it does, write the read in the corresponding file and return true
+                    if(read_barcode == m_barcodes[i].getBCSeq()) {
+                        toReport = l1 + "\n" + l2 + "\n" + l3 + "\n" + l4 + "\n";
+                        written = fwrite(toReport.c_str(), 1, toReport.length(), ofStreams[i]);
+                        if (written != toReport.length()) {
+                            cerr << "Write error (probably end of disk)" << endl;
+                            exit(EXIT_FAILURE);
+                        }
+                        m_counts1[i] = m_counts1[i] + 1;
+                        reported = true;
+                        break;
+                    }
+                }
+                
+                //if not, write it in the "Undetermined" file
+                if(!reported) {
+                    toReport = l1 + "\n" + l2 + "\n" + l3 + "\n" + l4 + "\n";
+                    int written = fwrite(toReport.c_str(), 1, toReport.length(), ofStreams[m_countsSize-1]);
+                    if (written != toReport.length()) {
+                        cerr << "Write error (probably end of disk)" << endl;
+                        exit(EXIT_FAILURE);
+                    }
+                    m_counts1[m_countsSize-1] = m_counts1[m_countsSize-1] + 1;
+                }
+                            
+                ct += 1;
+                if(ct%1000000 == 0) {
+                    cout << ct/1000000 << " million reads\r" << flush;
+                }
+            }
+                    
+            report(m_inFile1, ct, m_barcodes, m_counts1);
+        }
+        
+        void readAndSort(ifstream& inFlow1, ifstream& inFlow2, vector<FILE*>& ofStreams1, vector<FILE*>& ofStreams2, int m_countsSize) { 
+            int written1, written2;
+            long long int ct(0);
+            string l11, l12, l13, l14, l21, l22, l23, l24, toReport1, toReport2, read_barcode1, read_barcode2;
+            bool reported, notSameBarcode(false);
+            while(getline(inFlow1, l11) && getline(inFlow1, l12) && getline(inFlow1, l13) && getline(inFlow1, l14) && \
+                getline(inFlow2, l21) && getline(inFlow2, l22) && getline(inFlow2, l23) && getline(inFlow2, l24)) {
+                //get the current read's barcode value
+                read_barcode1 = l11.substr(l11.find(" ")+7, 6);
+                read_barcode2 = l21.substr(l21.find(" ")+7, 6);
+                reported = false;
+                //if barcode1 and barcode2 are the same, check if they correspond to a known barcode
+                if(read_barcode1 == read_barcode2) {
+                    for(size_t i(0); i < m_barcodes.size(); i++) {
+                        //if it does, write the read in the corresponding file and return true
+                        if(read_barcode1 == m_barcodes[i].getBCSeq()) {
+                            toReport1 = l11 + "\n" + l12 + "\n" + l13 + "\n" + l14 + "\n";
+                            toReport2 = l21 + "\n" + l22 + "\n" + l23 + "\n" + l24 + "\n";
+                            written1 = fwrite(toReport1.c_str(), 1, toReport1.length(), ofStreams1[i]);
+                            written2 = fwrite(toReport2.c_str(), 1, toReport2.length(), ofStreams2[i]);
+                            if(written1 != toReport1.length() || written2 != toReport2.length()) {
+                                cerr << "Write error (probably end of disk)" << endl;
+                                exit(EXIT_FAILURE);
+                            }
+                            m_counts1[i] = m_counts1[i] + 1;
+                            m_counts2[i] = m_counts2[i] + 1;
+                            reported = true;
+                            break;
+                            
+                        }
+                    }
+                }
+                
+                //if not, keep it in memory
+                else {
+                    notSameBarcode = true;
+                    reported = false;
+                }
+                
+                //if the reads have not been reported for any reason, write them in the "Undetermined" file
+                if(!reported){
+                    toReport1 = l11 + "\n" + l12 + "\n" + l13 + "\n" + l14 + "\n";
+                    toReport2 = l21 + "\n" + l22 + "\n" + l23 + "\n" + l24 + "\n";
+                    written1 = fwrite(toReport1.c_str(), 1, toReport1.length(), ofStreams1[m_countsSize-1]);
+                    written2 = fwrite(toReport2.c_str(), 1, toReport2.length(), ofStreams2[m_countsSize-1]);
+                    if(written1 != toReport1.length() || written2 != toReport2.length()) {
+                        cerr << "Write error (probably end of disk)" << endl;
+                        exit(EXIT_FAILURE);
+                    }
+                    m_counts1[m_countsSize-1] = m_counts1[m_countsSize-1] + 1;
+                    m_counts2[m_countsSize-1] = m_counts2[m_countsSize-1] + 1;
+                }
+                            
+                ct += 1;
+                if(ct%1000000 == 0) {
+                    cout << ct/1000000 << " million reads\r" << flush;
+                }
+            }
+            
+            if(notSameBarcode) {
+                cout << "Some pair-end reads didn't have the same barcode !" << endl;
+            }
+            report(m_inFile1, ct, m_barcodes, m_counts1);
+            report(m_inFile2, ct, m_barcodes, m_counts2);
+        }
+        
+        /*display a short report of the demultipeling*/
         void report(string m_inFile, long long int ct, vector<Barcode> m_barcodes, vector<long long int> m_counts) {
             cout << "Reads of " << m_inFile << " demultiplexed:" << endl;
             cout << "Total: " << ct << endl;
@@ -124,97 +299,20 @@ class Demultiplexer {
             cout << "Undetermined XXXXXX " << m_counts[m_counts.size()-1] << endl;
         }
 
-        long long int demultiplex() {
-                //Ouverture d'un fichier en lecture
-                ifstream inFlow(m_inFile);
 
-                if(inFlow) {
-                    // Declare variables
-                    long long int ct = 0; // count the number of reads processed
-                    //~ Barcode undeterminedBarcode("Undetermined", "......"); //a barcode used to export the reads whithout correct barcode in the Undetermined file
-                    //ofstream ofStream;
-                    string l1, l2, l3, l4;
-                    bool reported;
-                    int m_countsSize;
-
-                    //Open 48 ofstreams to write into them
-                    vector<FILE*> ofStreams;
-                    for(auto bc: m_barcodes) {
-                        string fileName = "Demultiplexed_Reads/" + bc.getBCName() + "." +  m_end + "fastq";
-                        FILE* ofs;
-                        ofs = fopen(fileName.c_str(), "w");
-                        ofStreams.push_back(ofs);
-                        m_counts.push_back(0);
-                    }
-                    string undeterminedOfStreamName = "Demultiplexed_Reads/Undetermined." +  m_end + ".fastq";
-                    FILE* undeterminedOfStream;
-                    undeterminedOfStream = fopen(undeterminedOfStreamName.c_str(), "w");
-                    ofStreams.push_back(undeterminedOfStream);
-                    m_counts.push_back(0);
-                    m_countsSize = m_counts.size();
-
-                    // Read the file 4 lines at a time and demultiplex as long as there are lines to read
-                    while(getline(inFlow, l1) && getline(inFlow, l2) && getline(inFlow, l3) && getline(inFlow, l4)) {
-                        
-                        //get the current read's barcode value
-                        string read_barcode = l1.substr(l1.find(" ")+7, 6);
-                        reported = false;
-                        
-                        //check if it corresponds to a NEXTfera barcode
-                        for(size_t i(0); i < m_barcodes.size(); i++) {
-                            //if it does, write the read in the corresponding file and return true
-                            if(read_barcode == m_barcodes[i].getBCSeq()) {
-                                string toReport(l1 + "\n" + l2 + "\n" + l3 + "\n" + l4 + "\n");
-                                int written = fwrite(toReport.c_str(), 1, toReport.length(), ofStreams[i]);
-                                if (written != toReport.length()) {
-                                    cerr << "Write error (probably end of disk)" << endl;
-                                    exit(EXIT_FAILURE);
-                                }
-                                m_counts[i] = m_counts[i] + 1;
-                                reported = true;
-                                break;
-                            }
-                        }
-                        //if not, write it in the "Undetermined" file
-                        if(!reported) {
-                            string toReport(l1 + "\n" + l2 + "\n" + l3 + "\n" + l4 + "\n");
-                            int written = fwrite(toReport.c_str(), 1, toReport.length(), ofStreams[m_countsSize-1]);
-                            if (written != toReport.length()) {
-                                    cerr << "Write error (probably end of disk)" << endl;
-                                    exit(EXIT_FAILURE);
-                            }
-                            m_counts[m_countsSize-1] = m_counts[m_countsSize-1] + 1;
-                        }
-                        
-                        ct += 1;
-                        if(ct%1000000 == 0) {
-                            cout << ct/1000000 << " million reads\r" << flush;
-                        }
-                    }
-                
-                    report(m_inFile, ct, m_barcodes, m_counts);
-
-                }
-                
-                else {
-                    cerr << "ERROR: The file to demultiplex can't be opened." << endl;
-                }
-            
-            return 0;
-    }
-        
     private:
-        string m_inFile;
-        string m_end;
+        string m_inFile1;
+        string m_inFile2;
         vector<Barcode> m_barcodes;
-        vector<long long int> m_counts;
+        vector<long long int> m_counts1;
+        vector<long long int> m_counts2;
 };    
 
 
 int main(int argc, char* argv[]) {
     
     // Check that 2 files have been given as arguments
-    if(argc != 3){
+    if(argc > 3 || argc <= 1 ){
         cerr << "ERROR: wrong number of arguments. Please provide 1 or 2 fastq files to demultiplex." << endl;
         return 1;
     }
@@ -230,28 +328,23 @@ int main(int argc, char* argv[]) {
     else {
     
         // Get the files to demultiplex
-        string f1 = argv[1];
-        string f2 = argv[2];
+        string f1(argv[1]);
+        string f2;
+        if(argc == 3) {
+            f2 = argv[2];
+        }
+        else {
+            f2 = "None";
+        }
         
-        // Generate the vectors of barcodes
-        Barcodes bcs1("barcodes.txt", "end1");
-        vector<Barcode> barcodes1(bcs1.getBCs());
-        Barcodes bcs2("barcodes.txt", "end2");
-        vector<Barcode> barcodes2(bcs2.getBCs());
+        // Generate the vector of barcodes
+        Barcodes bcs("barcodes.txt");
+        vector<Barcode> barcodes(bcs.getBCs());
         
         // Demultiplex the reads of the end1
-        Demultiplexer dm1(f1, barcodes1, "end1");
-        dm1.demultiplex();
-        //cout << "\nReads of end1 demultiplexed" << endl;
+        Demultiplexer dm(f1, f2, barcodes);
+        dm.demultiplex();
         
-        // Demultiplex the reads of the end2
-        if(f2 != "-") {
-            Demultiplexer dm2(f2, barcodes2, "end2");
-            dm2.demultiplex();
-            //cout << "\nReads of end2 demultiplexed" << endl;
-        }
-        cout << endl << "Files saved in Demultiplexed_Reads directory." << endl;
-
         return 0;
     }
 }
