@@ -11,7 +11,7 @@ Demultiplexv2.cpp must be compiled with a compiler supporting the C++11 standard
 
 ```./Demultiplex <fastq file (end1)> [<fastq file (end2)>]```
 
-1 (for single-end reads) or 2 (for pair-end reads) can be passed as argument.
+1 (for single-end reads) or 2 (for pair-end reads) files can be passed as argument.
 
 The executable file must be in the same folder as the file *barcodes.txt*.
 
