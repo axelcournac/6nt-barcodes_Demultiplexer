@@ -9,7 +9,7 @@ Output: a folder with a fastq file for each code-bar
 ## Compile:
 Demultiplexv2.cpp must be compiled with a compiler supporting the C++11 standard. For example:
 
-```g++ --std=c++11 Demultiplexv2.cpp -o <executable file name>```
+```g++ -std=c++11 Demultiplexv2.cpp -o <executable file name>```
 
 ## Usage:
 
