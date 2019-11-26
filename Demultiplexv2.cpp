@@ -39,8 +39,8 @@ class Barcode {
  * Methods:
  *  Barcodes(string barcodesFile): the constructor. Takes the barcode.txt file in entry.
  *                                 Must contain 1 barcode/line whith the comma-separated
- *                                 name and sequence of the barcode. The name must have 4 chars
- *                                 the sequence must have 6 characters.
+ *                                 name and sequence of the barcode. The name must have 8 chars
+ *                                 the sequence must have 17 characters.
  *  getBCs(): the getter of the vector*/
 class Barcodes {
     public:
@@ -66,8 +66,8 @@ class Barcodes {
                 // parse each line of the barcode file
                 while(getline(flow, line)) {
                     //get the name and sequence of the barcodes
-                    name = line.substr(0, 4);
-                    seq = line.substr(5, 6);
+                    name = line.substr(0, 8);
+                    seq = line.substr(9, 17);
         
                     //create the corresponding Barcode
                     Barcode bc(name, seq);
@@ -183,7 +183,7 @@ class Demultiplexer {
             bool reported;
             while(getline(inFlow, l1) && getline(inFlow, l2) && getline(inFlow, l3) && getline(inFlow, l4)) {
                 //get the current read's barcode value
-                read_barcode = l1.substr(l1.find(" ")+7, 6);
+                read_barcode = l1.substr(l1.find(" ")+7, 17);
                 reported = false;
 
                 //check if it corresponds to a NEXTfera barcode
@@ -230,8 +230,8 @@ class Demultiplexer {
             while(getline(inFlow1, l11) && getline(inFlow1, l12) && getline(inFlow1, l13) && getline(inFlow1, l14) && \
                 getline(inFlow2, l21) && getline(inFlow2, l22) && getline(inFlow2, l23) && getline(inFlow2, l24)) {
                 //get the current read's barcode value
-                read_barcode1 = l11.substr(l11.find(" ")+7, 6);
-                read_barcode2 = l21.substr(l21.find(" ")+7, 6);
+                read_barcode1 = l11.substr(l11.find(" ")+7, 17);
+                read_barcode2 = l21.substr(l21.find(" ")+7, 17);
                 reported = false;
                 //if barcode1 and barcode2 are the same, check if they correspond to a known barcode
                 if(read_barcode1 == read_barcode2) {
@@ -309,6 +309,10 @@ class Demultiplexer {
 };    
 
 
+
+
+
+
 int main(int argc, char* argv[]) {
     
     // Check that 2 files have been given as arguments
@@ -338,7 +342,7 @@ int main(int argc, char* argv[]) {
         }
         
         // Generate the vector of barcodes
-        Barcodes bcs("barcodes.txt");
+        Barcodes bcs("names_barcodes_2019.txt");
         vector<Barcode> barcodes(bcs.getBCs());
         
         // Demultiplex the reads of the end1
